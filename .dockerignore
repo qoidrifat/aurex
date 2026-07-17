@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+.github
+
+# Node
+node_modules
+npm-debug.log
+
+# Docker
+docker-compose.yml
+.docker
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter (built separately)
+mobile_app/flutter_app/build
+mobile_app/flutter_app/.dart_tool
+mobile_app/flutter_app/.packages
+mobile_app/flutter_app/.flutter-plugins*
+
+# Laravel specific
+backend/laravel_api/.env
+backend/laravel_api/storage/logs/*
+!backend/laravel_api/storage/logs/.gitkeep
+backend/laravel_api/storage/framework/cache/data/*
+!backend/laravel_api/storage/framework/cache/data/.gitkeep
+backend/laravel_api/storage/framework/sessions/*
+!backend/laravel_api/storage/framework/sessions/.gitkeep
+backend/laravel_api/storage/framework/views/*
+!backend/laravel_api/storage/framework/views/.gitkeep
+backend/laravel_api/node_modules
+backend/laravel_api/public/hot
+backend/laravel_api/public/build
+backend/laravel_api/vendor
+
+# Python
+ai_service/python_ai/__pycache__
+ai_service/python_ai/*.pyc
+ai_service/python_ai/.venv
+ai_service/python_ai/venv
+ai_service/python_ai/env
+
+# Logs
+*.log
+
+# Secrets
+**/.env
+**/.env.local
+**/.env.production

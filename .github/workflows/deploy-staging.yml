@@ -1,0 +1,127 @@
+# ─── AUREX Staging Deployment ─────────────────────────
+# Deploy otomatis ke staging server saat push ke branch staging.
+#
+# Prerequisites:
+#   1. Set GitHub Secrets:
+#      - SSH_PRIVATE_KEY     : Private key untuk SSH ke VPS
+#      - SSH_HOST            : user@host (contoh: root@staging-api.aurex.app)
+#      - APP_KEY             : Laravel app key
+#      - DB_PASSWORD         : MySQL password
+#      - AI_API_KEY          : AI Service API key
+#      - SENTRY_DSN          : (optional) Sentry DSN
+#   2. VPS dengan Docker & Docker Compose terinstall
+#   3. Domain mengarah ke IP VPS
+
+name: Deploy Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      rollback:
+        description: 'Rollback ke versi sebelumnya'
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: aurex_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_mysql, bcmath, xml, json
+
+      - name: Install Composer Dependencies
+        working-directory: ./backend/laravel_api
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Setup Environment
+        working-directory: ./backend/laravel_api
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          touch database/database.sqlite
+
+      - name: Run Backend Tests
+        working-directory: ./backend/laravel_api
+        run: php artisan test
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.0'
+          channel: 'stable'
+
+      - name: Run Flutter Tests
+        working-directory: ./mobile_app/flutter_app
+        run: |
+          flutter pub get
+          flutter test
+
+  deploy:
+    name: Deploy to Staging
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && success()
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for rollback
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $(echo '${{ secrets.SSH_HOST }}' | cut -d@ -f2) >> ~/.ssh/known_hosts
+
+      - name: Deploy / Rollback
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          if [ "${{ github.event.inputs.rollback }}" = "true" ]; then
+            chmod +x ./deploy/staging/deploy.sh
+            ./deploy/staging/deploy.sh --rollback
+          else
+            chmod +x ./deploy/staging/deploy.sh
+            ./deploy/staging/deploy.sh
+          fi
+
+      - name: Health Check
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+              "https://$(echo '${{ secrets.SSH_HOST }}' | cut -d@ -f2)/api/v1/health" \
+              --connect-timeout 10 || echo "000")
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
+              echo "✅ Health check passed (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS, retrying..."
+            sleep 10
+          done
+          echo "❌ Health check failed after 5 attempts"
+          exit 1

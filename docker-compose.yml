@@ -1,0 +1,167 @@
+version: '3.8'
+
+name: aurex
+
+# ==================== NETWORKS ====================
+networks:
+  aurex-network:
+    driver: bridge
+
+# ==================== VOLUMES ====================
+volumes:
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local
+  laravel-logs:
+    driver: local
+
+# ==================== SERVICES ====================
+services:
+
+  # ----- LARAVEL BACKEND (Nginx + PHP-FPM + Queue) -----
+  laravel:
+    build:
+      context: ./backend/laravel_api
+      dockerfile: Dockerfile
+    container_name: aurex-laravel
+    ports:
+      - "8000:80"
+    volumes:
+      - laravel-logs:/var/www/html/storage/logs
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=http://localhost:8000
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=aurex
+      - DB_USERNAME=aurex_user
+      - DB_PASSWORD=${DB_PASSWORD:-aurex_secret_2026}
+      - CACHE_STORE=redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      # APP_KEY: Generate dengan: cd backend/laravel_api && php artisan key:generate
+      - APP_KEY=${APP_KEY:?APP_KEY is required! Generate dengan: cd backend/laravel_api && php artisan key:generate --show}
+      # AI Service: URL + API Key untuk autentikasi
+      - AI_SERVICE_URL=http://ai-service:8001/analyze-face
+      # AI_SERVICE_API_KEY: API key untuk autentikasi ke AI Service
+      # Isi dengan value yang sama persis di service ai-service di bawah
+      - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY:-aurex-ai-dev-key-2026}
+
+      # Sentry (Error Tracking)
+      - SENTRY_LARAVEL_DSN=${SENTRY_DSN:-}
+      - SENTRY_TRACES_SAMPLE_RATE=0.2
+
+      # Laravel Pulse (Performance Monitoring)
+      - PULSE_ENABLED=true
+      - PULSE_DB_CONNECTION=mysql
+
+      # Laravel Horizon (Queue Monitoring)
+      - HORIZON_DOMAIN=
+      - HORIZON_PATH=horizon
+
+      # Health Monitor Alerting
+      - HEALTH_ALERT_SLACK_ENABLED=${HEALTH_ALERT_SLACK_ENABLED:-false}
+      - HEALTH_ALERT_MAIL_ENABLED=${HEALTH_ALERT_MAIL_ENABLED:-false}
+      - HEALTH_ALERT_FAILURE_THRESHOLD=3
+      - HEALTH_ALERT_RECOVERY_THRESHOLD=2
+      - HEALTH_ALERT_MAIL_RECIPIENTS=${HEALTH_ALERT_MAIL_RECIPIENTS:-}
+      - SLACK_BOT_USER_OAUTH_TOKEN=${SLACK_BOT_USER_OAUTH_TOKEN:-}
+      - SLACK_BOT_USER_DEFAULT_CHANNEL=${SLACK_BOT_USER_DEFAULT_CHANNEL:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aurex-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "php", "/var/www/html/artisan", "health:check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ----- MYSQL DATABASE -----
+  mysql:
+    image: mysql:8.4
+    container_name: aurex-mysql
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=aurex
+      - MYSQL_USER=aurex_user
+      - MYSQL_PASSWORD=${DB_PASSWORD:-aurex_secret_2026}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root_secret_2026}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max_allowed_packet=64M
+      - --innodb_log_file_size=256M
+    networks:
+      - aurex-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_secret_2026}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ----- REDIS (Cache / Session / Queue) -----
+  redis:
+    image: redis:7.4-alpine
+    container_name: aurex-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - aurex-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----- AI SERVICE (Python FastAPI) -----
+  ai-service:
+    build:
+      context: ./ai_service/python_ai
+      dockerfile: Dockerfile
+    container_name: aurex-ai-service
+    ports:
+      - "8001:8001"
+    environment:
+      - AI_SERVICE_PORT=8001
+      # AI_SERVICE_API_KEY: Harus sama persis dengan yang di laravel service di atas
+      # Ganti default ini dengan setting AI_SERVICE_API_KEY di .env file
+      - AI_SERVICE_API_KEY=${AI_SERVICE_API_KEY:-aurex-ai-dev-key-2026}
+      - PYTHONUNBUFFERED=1
+    networks:
+      - aurex-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8001/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
