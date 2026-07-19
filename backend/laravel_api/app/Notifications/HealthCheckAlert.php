@@ -3,142 +3,102 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Messages\SlackMessage;
-use Illuminate\Notifications\Notification;
 
 class HealthCheckAlert extends Notification
 {
     use Queueable;
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct(
-        public string $status,
-        public array $checks,
-        public float $totalLatencyMs,
-        public string $environment,
-    ) {}
+    public string $status;
+    public array $checks;
+    public float $totalLatencyMs;
+    public string $environment;
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
+    public function __construct(
+        string $status,
+        array $checks,
+        float $totalLatencyMs,
+        string $environment
+    ) {
+        $this->status = $status;
+        $this->checks = $checks;
+        $this->totalLatencyMs = $totalLatencyMs;
+        $this->environment = $environment;
+    }
+
     public function via(object $notifiable): array
     {
-        $channels = [];
-
-        // Kirim notifikasi berdasarkan konfigurasi environment
-        if (config('monitoring.alert_channels.slack')) {
+        $channels = ['log'];
+        // Gunakan config untuk menentukan channel
+        if (config('monitoring.health_check.alert_channels.slack', false)) {
             $channels[] = 'slack';
         }
-        if (config('monitoring.alert_channels.mail')) {
+        if (config('monitoring.health_check.alert_channels.mail', false)) {
             $channels[] = 'mail';
         }
-
-        return $channels ?: ['log'];
+        return $channels;
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(object $notifiable): MailMessage
     {
-        $isHealthy = $this->status === 'healthy';
-        $subject = $isHealthy
-            ? "✅ [{$this->environment}] AUREX Health Check: RECOVERED"
-            : "🚨 [{$this->environment}] AUREX Health Check: {$this->status}";
-
         $mail = (new MailMessage)
-            ->subject($subject)
-            ->greeting($isHealthy ? '✅ Sistem pulih!' : '🚨 Ada masalah dengan sistem!')
-            ->line("**Environment:** {$this->environment}")
-            ->line("**Status:** {$this->status}")
-            ->line("**Total Latency:** {$this->totalLatencyMs}ms");
+            ->subject("[AUREX {$this->environment}] Health Alert: {$this->status}")
+            ->greeting("Health Check Alert ({$this->environment})")
+            ->line("Status: **{$this->status}**")
+            ->line("Total Latency: {$this->totalLatencyMs}ms");
 
-        // Detail per-service check
-        foreach ($this->checks as $service => $result) {
-            if ($service === 'app') {
-                continue;
-            }
-            $icon = $result['status'] === 'healthy' ? '✅' : '❌';
-            $latency = isset($result['latency_ms']) ? " ({$result['latency_ms']}ms)" : '';
-            $error = isset($result['error']) ? " — Error: {$result['error']}" : '';
-            $mail->line("{$icon} **{$service}:** {$result['status']}{$latency}{$error}");
+        foreach ($this->checks as $service => $check) {
+            $status = $check['status'];
+            $latency = $check['latency_ms'] ?? '-';
+            $mail->line("- {$service}: {$status} ({$latency}ms)");
         }
 
-        $mail->action('Lihat Dashboard', url('/up'))
-            ->line('Notifikasi ini dikirim otomatis oleh AUREX Health Monitor.')
-            ->lineIf(!$isHealthy, '⏱ Akan dicek ulang dalam 1 menit.');
-
-        return $mail;
+        return $mail
+            ->action('View Dashboard', url('/pulse'))
+            ->line('This is an automated alert from AUREX Health Monitor.');
     }
 
-    /**
-     * Get the Slack representation of the notification.
-     */
     public function toSlack(object $notifiable): SlackMessage
     {
-        $isHealthy = $this->status === 'healthy';
+        $color = $this->status === 'healthy' ? 'good' : 'danger';
 
-        $slack = (new SlackMessage)
-            ->from('AUREX Monitor', ':robot_face:');
-
-        if ($isHealthy) {
-            $slack->success()
-                ->content("✅ *[{$this->environment}]* AUREX system has RECOVERED — all services healthy.");
-        } else {
-            $slack->error()
-                ->content("🚨 *[{$this->environment}]* AUREX Health Check: *{$this->status}*");
-        }
-
-        // Tambahkan attachment per-service check
-        $attachmentFields = [];
-        foreach ($this->checks as $service => $result) {
-            if ($service === 'app') {
-                continue;
-            }
-            $icon = $result['status'] === 'healthy' ? '✅' : '❌';
-            $latency = isset($result['latency_ms']) ? " ({$result['latency_ms']}ms)" : '';
-            $error = isset($result['error']) ? " — `{$result['error']}`" : '';
-            $attachmentFields[] = [
-                'title' => "{$icon} {$service}",
-                'value' => "Status: {$result['status']}{$latency}{$error}",
+        $fields = [];
+        foreach ($this->checks as $service => $check) {
+            $status = $check['status'];
+            $latency = $check['latency_ms'] ?? '-';
+            $error = $check['error'] ?? '';
+            $fields[] = [
+                'title' => $service,
+                'value' => "Status: {$status}\nLatency: {$latency}ms" . ($error ? "\nError: {$error}" : ''),
                 'short' => true,
             ];
         }
 
-        $slack->attachment(function ($attachment) use ($attachmentFields, $isHealthy) {
-            $attachment->fields($attachmentFields)
-                ->timestamp(now());
-
-            if (!$isHealthy) {
-                $attachment->actions([
-                    'type' => 'button',
-                    'text' => '🔍 Buka Dashboard',
-                    'url' => url('/up'),
-                    'style' => 'danger',
-                ]);
-            }
-        });
-
-        return $slack;
+        return (new SlackMessage)
+            ->from('AUREX Monitor', ':robot_face:')
+            ->to(config('services.slack.notifications.channel'))
+            ->attachment(function ($attachment) use ($color, $fields) {
+                $attachment
+                    ->color($color)
+                    ->title("[{$this->environment}] Health Status: {$this->status}")
+                    ->fields($fields)
+                    ->footer("Total Latency: {$this->totalLatencyMs}ms")
+                    ->timestamp(now()->timestamp);
+            });
     }
 
     /**
      * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
      */
     public function toArray(object $notifiable): array
     {
         return [
+            'environment' => $this->environment,
             'status' => $this->status,
             'checks' => $this->checks,
             'total_latency_ms' => $this->totalLatencyMs,
-            'environment' => $this->environment,
         ];
     }
 }

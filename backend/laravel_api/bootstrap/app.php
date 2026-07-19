@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
         $middleware->alias([
             'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+            // API Response Caching (#4 Bulan 3)
+            // Usage: Route::middleware(['cache.response:60'])->group(...)
+            'cache.response' => \App\Http\Middleware\CacheResponseMiddleware::class,
         ]);
         $middleware->statefulApi();
 
@@ -50,5 +53,12 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(5)
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/health-monitor.log'));
+
+        // Data Cleanup (#2 Bulan 3): hapus data lama sesuai retention policy
+        $schedule->command('data:cleanup --force')
+            ->dailyAt('02:00')
+            ->timezone('Asia/Jakarta')
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/data-cleanup.log'));
     })
     ->create();

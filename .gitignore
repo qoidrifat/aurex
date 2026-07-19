@@ -33,6 +33,10 @@ ai_service/python_ai/.pytest_cache/
 .docker/
 docker-compose.override.yml
 
+# ==================== Audit / Internal Docs ============
+ROADMAP_PERBAIKAN_AUREX.md
+HASIL_AUDIT_AUREX.md
+
 # ==================== Node =============================
 node_modules/
 .npm/

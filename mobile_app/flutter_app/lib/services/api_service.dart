@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'tracing_interceptor.dart';
-import 'secure_storage_service.dart';
+import 'dio_provider.dart';
 
 /// Exception khusus untuk error API yang user-friendly
 class ApiException implements Exception {
@@ -14,40 +13,17 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Service untuk komunikasi dengan backend API.
+///
+/// Menggunakan DI via Riverpod — Dio di-inject dari luar
+/// untuk memudahkan mocking di unit test (#3 Prioritas Sedang).
+///
+/// Sebelumnya: Dio di-instantiate langsung di constructor.
+/// Sekarang: Dio diterima sebagai dependency via constructor injection.
 class ApiService {
   final Dio _dio;
-  final _secureStorage = SecureStorageService();
 
-  ApiService()
-      : _dio = Dio(BaseOptions(
-          baseUrl: 'http://10.0.2.2:8000/api/v1', // Android emulator -> localhost (v1)
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 30),
-          sendTimeout: const Duration(seconds: 30),
-        )) {
-    // Tracing interceptor untuk X-Request-Id (dipasang pertama agar wrapping
-    // request_id bisa diakses oleh interceptor lain)
-    _dio.interceptors.add(TracingInterceptor());
-
-    // Auth token interceptor — membaca token dari SecureStorage (terenkripsi)
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await _secureStorage.getToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        return handler.next(options);
-      },
-      onError: (error, handler) {
-        // Jangan expose internal error details ke user
-        return handler.next(error);
-      },
-    ));
-  }
+  ApiService(this._dio);
 
   /// Helper untuk mengekstrak pesan error dari DioException
   String _extractErrorMessage(DioException e) {
@@ -195,5 +171,19 @@ class ApiService {
   }
 }
 
-/// Riverpod provider untuk ApiService
-final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
+/// Riverpod provider untuk ApiService dengan DI.
+///
+/// Dio di-inject dari dioProvider, bukan di-instantiate langsung.
+/// Ini memungkinkan mocking Dio di test dengan override provider.
+///
+/// Contoh override di test:
+/// ```dart
+/// final mockDio = MockDio();
+/// providerContainer = ProviderContainer(overrides: [
+///   dioProvider.overrideWithValue(mockDio),
+///   apiServiceProvider.overrideWith((ref) => ApiService(mockDio)),
+/// ]);
+/// ```
+final apiServiceProvider = Provider<ApiService>((ref) {
+  return ApiService(ref.read(dioProvider));
+});

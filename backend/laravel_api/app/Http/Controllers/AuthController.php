@@ -9,6 +9,7 @@ use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\ResendVerificationRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Repositories\UserRepository;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +19,13 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    protected UserRepository $userRepository;
+
+    public function __construct(UserRepository $userRepository)
+    {
+        $this->userRepository = $userRepository;
+    }
+
     // ==================== REGISTRATION ====================
 
     /**
@@ -31,10 +39,10 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request)
     {
-        $user = User::create([
+        $user = $this->userRepository->create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'password' => $request->password,
         ]);
 
         // Kirim email verifikasi
@@ -64,7 +72,7 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request)
     {
-        $user = User::where('email', $request->email)->first();
+        $user = $this->userRepository->findByEmail($request->email);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -114,7 +122,11 @@ class AuthController extends Controller
      */
     public function verifyEmail(Request $request, $id, $hash)
     {
-        $user = User::findOrFail($id);
+        $user = $this->userRepository->findById($id);
+
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan.'], 404);
+        }
 
         // Validasi hash
         if (!hash_equals($hash, sha1($user->getEmailForVerification()))) {
@@ -135,7 +147,11 @@ class AuthController extends Controller
      */
     public function resendVerification(ResendVerificationRequest $request)
     {
-        $user = User::where('email', $request->email)->first();
+        $user = $this->userRepository->findByEmail($request->email);
+
+        if (!$user) {
+            return response()->json(['message' => 'Email tidak ditemukan.'], 404);
+        }
 
         if ($user->hasVerifiedEmail()) {
             return response()->json(['message' => 'Email sudah diverifikasi.']);

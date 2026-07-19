@@ -45,8 +45,8 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - SESSION_DRIVER=redis
       - QUEUE_CONNECTION=redis
-      # APP_KEY: Generate dengan: cd backend/laravel_api && php artisan key:generate
-      - APP_KEY=${APP_KEY:?APP_KEY is required! Generate dengan: cd backend/laravel_api && php artisan key:generate --show}
+      # APP_KEY: Required — generate dengan `php artisan key:generate --show`
+      - APP_KEY=${APP_KEY}
       # AI Service: URL + API Key untuk autentikasi
       - AI_SERVICE_URL=http://ai-service:8001/analyze-face
       # AI_SERVICE_API_KEY: API key untuk autentikasi ke AI Service

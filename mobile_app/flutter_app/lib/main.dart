@@ -43,27 +43,37 @@ class AurexApp extends ConsumerWidget {
 
   ThemeData _buildTheme(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
-    final Color scaffoldBg = isDark ? AurexColors.charcoal : const Color(0xFFF8F6F0);
-    final Color surface = isDark ? AurexColors.charcoal : const Color(0xFFEFECE4);
-    final Color textPrimary = isDark ? AurexColors.cream : const Color(0xFF2C2C2C);
-    final Color textSecondary = isDark ? AurexColors.grey : const Color(0xFF6B6B6B);
+    final Color scaffoldBg = isDark ? AurexColors.charcoal : AurexColors.surfaceLight;
+    final Color surface = isDark ? AurexColors.cardDark : AurexColors.cardLight;
+    final Color textPrimary = isDark ? AurexColors.textOnDark : AurexColors.textOnLight;
+    final Color textSecondary = isDark ? AurexColors.greyDark : AurexColors.grey;
+
+    // ── WCAG AA Color Contrast Fix (#3 Prioritas Tinggi) ──
+    // Gunakan oliveLight (#7B9346) untuk aksesibilitas di dark mode
+    // Olive asli (#556B2F) hanya 2.5:1 vs charcoal — GAGAL WCAG AA
+    final Color primaryColor = isDark ? AurexColors.oliveLight : AurexColors.olive;
+    final Color onPrimaryColor = isDark ? AurexColors.charcoal : Colors.white;
+    final Color focusColor = isDark
+        ? AurexColors.oliveLight.withValues(alpha: 0.35)
+        : AurexColors.olive.withValues(alpha: 0.25);
 
     return ThemeData(
       brightness: brightness,
       scaffoldBackgroundColor: scaffoldBg,
-      primaryColor: AurexColors.olive,
-      colorScheme: brightness == Brightness.dark
-          ? const ColorScheme.dark(
-              primary: AurexColors.olive,
+      primaryColor: primaryColor,
+      colorScheme: isDark
+          ? ColorScheme.dark(
+              primary: primaryColor,
+              onPrimary: onPrimaryColor,
               secondary: AurexColors.rust,
               surface: AurexColors.charcoal,
+              onSurface: textPrimary,
             )
           : ColorScheme.light(
-              primary: AurexColors.olive,
+              primary: primaryColor,
+              onPrimary: onPrimaryColor,
               secondary: AurexColors.rust,
               surface: surface,
-              onPrimary: Colors.white,
-              onSecondary: Colors.white,
               onSurface: textPrimary,
             ),
       appBarTheme: AppBarTheme(
@@ -77,7 +87,7 @@ class AurexApp extends ConsumerWidget {
         iconTheme: IconThemeData(color: textPrimary),
       ),
       cardTheme: CardThemeData(
-        color: isDark ? AurexColors.charcoal.withValues(alpha: 0.3) : surface,
+        color: isDark ? AurexColors.cardDark : surface,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -102,7 +112,7 @@ class AurexApp extends ConsumerWidget {
       ),
       useMaterial3: true,
       // --- Focus / Keyboard Accessibility ---
-      focusColor: AurexColors.olive.withValues(alpha: 0.25),
+      focusColor: focusColor,
     );
   }
 }

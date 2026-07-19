@@ -77,6 +77,16 @@ def log_with_context(message: str, level: str = "info", **kwargs):
 mp_face_mesh = mp.solutions.face_mesh
 mp_face_detection = mp.solutions.face_detection
 
+# Track MediaPipe & OpenCV versions untuk model versioning (#4 Prioritas Sedang)
+MEDIAPIPE_VERSION = getattr(mp, "__version__", "unknown")
+OPENCV_VERSION = cv2.__version__
+
+logger.info(
+    f"Initializing models | MediaPipe v{MEDIAPIPE_VERSION} "
+    f"OpenCV v{OPENCV_VERSION} "
+    f"Service v{MODEL_VERSION}"
+)
+
 face_mesh = mp_face_mesh.FaceMesh(
     static_image_mode=True,
     max_num_faces=1,
@@ -578,11 +588,39 @@ async def root():
     }
 
 
+@app.get("/version")
+async def version_info():
+    """
+    Informasi versi lengkap dari AI Service dan library yang digunakan.
+
+    Item #4 Prioritas Sedang — AI Model Versioning:
+    Melacak versi MediaPipe dan OpenCV untuk memastikan hasil analisis
+    tetap konsisten antar deployment. Jika library di-upgrade, model_version
+    berubah dan client bisa menyesuaikan ekspektasi.
+    """
+    return {
+        "service_version": MODEL_VERSION,
+        "mediapipe_version": MEDIAPIPE_VERSION,
+        "opencv_version": OPENCV_VERSION,
+        "python_env": {
+            "face_mesh_confidence": 0.5,
+            "face_detection_model": "full_range",
+            "face_detection_confidence": 0.5,
+            "max_file_size_mb": MAX_FILE_SIZE // (1024 * 1024),
+            "min_image_dimension": MIN_IMAGE_DIMENSION,
+            "max_image_dimension": MAX_IMAGE_DIMENSION,
+        },
+        "timestamp": time.time(),
+    }
+
+
 @app.get("/health")
 async def health():
     return {
         "status": "healthy",
         "version": MODEL_VERSION,
+        "mediapipe_version": MEDIAPIPE_VERSION,
+        "opencv_version": OPENCV_VERSION,
         "timestamp": time.time(),
     }
 
@@ -658,6 +696,10 @@ async def analyze_face(file: UploadFile = File(...)):
         "colors": recs["colors"],
         "outfits": recs["outfits"],
         "model_version": MODEL_VERSION,
+        "library_versions": {
+            "mediapipe": MEDIAPIPE_VERSION,
+            "opencv": OPENCV_VERSION,
+        },
     }
 
 

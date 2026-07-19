@@ -8,7 +8,8 @@ use App\Http\Resources\AnalysisCollection;
 use App\Http\Resources\AnalysisResource;
 use App\Http\Resources\ImageResource;
 use App\Models\Analysis;
-use App\Models\Image;
+use App\Repositories\AnalysisRepository;
+use App\Repositories\ImageRepository;
 use App\Services\FaceAnalysisService;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
@@ -19,16 +20,23 @@ use Illuminate\Support\Facades\Log;
 /**
  * Controller untuk upload selfie dan analisis gaya fashion.
  *
- * Business logic telah dipindahkan ke FaceAnalysisService
- * agar controller tetap ramping (thin controller pattern).
+ * Business logic telah dipindahkan ke FaceAnalysisService,
+ * query logic ke Repository Pattern (#5 Prioritas Sedang).
  */
 class AnalysisController extends Controller
 {
     protected FaceAnalysisService $faceAnalysisService;
+    protected AnalysisRepository $analysisRepository;
+    protected ImageRepository $imageRepository;
 
-    public function __construct(FaceAnalysisService $faceAnalysisService)
-    {
+    public function __construct(
+        FaceAnalysisService $faceAnalysisService,
+        AnalysisRepository $analysisRepository,
+        ImageRepository $imageRepository
+    ) {
         $this->faceAnalysisService = $faceAnalysisService;
+        $this->analysisRepository = $analysisRepository;
+        $this->imageRepository = $imageRepository;
     }
 
     /**
@@ -40,7 +48,7 @@ class AnalysisController extends Controller
     {
         $path = $request->file('image')->store('selfies', 'public');
 
-        $image = Image::create([
+        $image = $this->imageRepository->create([
             'user_id' => $request->user()->id,
             'image_path' => $path,
         ]);
@@ -63,22 +71,22 @@ class AnalysisController extends Controller
      */
     public function analyze(AnalyzeRequest $request)
     {
-        $image = Image::findOrFail($request->image_id);
-
-        if ($image->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        $image = $this->imageRepository->findOrFail($request->image_id);
+        $this->authorize('view', $image);
 
         try {
             // Delegasikan ke Service Layer (F-012 / F-018)
             $aiResult = $this->faceAnalysisService->analyzeImage($image->image_path);
 
-            // Simpan hasil analisis (F-007: juga update image.analysis_id)
+            // Simpan hasil analisis via service layer
             $analysis = $this->faceAnalysisService->saveAnalysis(
                 userId: $request->user()->id,
                 aiResult: $aiResult,
                 imageId: $image->id
             );
+
+            // Invalidate history cache agar data baru langsung muncul
+            $this->analysisRepository->clearHistoryCache($request->user()->id);
 
             return response()->json([
                 'message' => 'Analysis completed',
@@ -119,32 +127,40 @@ class AnalysisController extends Controller
     }
 
     /**
-     * Riwayat analisis user dengan pagination.
-     * Menggunakan AnalysisCollection untuk response yang konsisten.
+     * Riwayat analisis user dengan pagination (dioptimasi untuk N+1 Query).
+     *
+     * Item #7 Prioritas Tinggi — Optimasi N+1 Query:
+     * - Eager loading 'recommendation' sudah benar (mencegah N+1)
+     * - Tambah select() spesifik untuk mengurangi data transfer
+     * - Cache hasil untuk request yang sama dalam 5 menit
+     * - Batasi maksimal 100 record per page
+     *
+     * Menggunakan AnalysisRepository untuk query logic.
+     *
+     * Item #5 Repository Pattern — Query logic dipindahkan ke repository.
      */
     public function history(Request $request)
     {
         $perPage = $request->input('per_page', 10);
-        $history = $request->user()
-            ->analyses()
-            ->with('recommendation')
-            ->latest()
-            ->paginate(min($perPage, 50));
+        $page = $request->input('page', 1);
+
+        $history = $this->analysisRepository->getPaginatedHistory(
+            userId: $request->user()->id,
+            perPage: $perPage,
+            page: $page
+        );
 
         return new AnalysisCollection($history);
     }
 
     /**
      * Detail hasil analisis tertentu.
-     * Menggunakan AnalysisResource untuk response yang konsisten.
+     * Menggunakan AnalysisResource dan AnalysisRepository.
      */
     public function getResult($id, Request $request)
     {
-        $analysis = Analysis::with('recommendation')->findOrFail($id);
-
-        if ($analysis->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        $analysis = $this->analysisRepository->findOrFail($id);
+        $this->authorize('view', $analysis);
 
         return new AnalysisResource($analysis);
     }

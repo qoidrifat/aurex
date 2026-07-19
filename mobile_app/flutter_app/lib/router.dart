@@ -13,6 +13,7 @@ import 'screens/profile_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/help_screen.dart';
+import 'widgets/animations.dart';
 
 /// Defines all route paths as constants to avoid string duplication.
 class RoutePaths {
@@ -31,6 +32,8 @@ class RoutePaths {
 }
 
 /// Builds the GoRouter configuration for AUREX.
+///
+/// Menggunakan custom page transitions (#1 Bulan 3 — Motion Design).
 GoRouter buildRouter() {
   return GoRouter(
     initialLocation: RoutePaths.splash,
@@ -38,68 +41,116 @@ GoRouter buildRouter() {
       GoRoute(
         path: RoutePaths.splash,
         name: 'splash',
-        builder: (context, state) => const SplashScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const SplashScreen(),
+          transitionsBuilder: PageTransitions.fadeThrough,
+        ),
       ),
       GoRoute(
         path: RoutePaths.onboarding,
         name: 'onboarding',
-        builder: (context, state) => const OnboardingScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const OnboardingScreen(),
+          transitionsBuilder: PageTransitions.fadeThrough,
+        ),
       ),
       GoRoute(
         path: RoutePaths.login,
         name: 'login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const LoginScreen(),
+          transitionsBuilder: PageTransitions.fadeThrough,
+        ),
       ),
       GoRoute(
         path: RoutePaths.register,
         name: 'register',
-        builder: (context, state) => const RegisterScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const RegisterScreen(),
+          transitionsBuilder: PageTransitions.fadeThrough,
+        ),
       ),
       GoRoute(
         path: RoutePaths.forgotPassword,
         name: 'forgot-password',
-        builder: (context, state) => const ForgotPasswordScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const ForgotPasswordScreen(),
+          transitionsBuilder: PageTransitions.slideFromBottom,
+        ),
       ),
       GoRoute(
         path: RoutePaths.upload,
         name: 'upload',
-        builder: (context, state) => const UploadScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const UploadScreen(),
+          transitionsBuilder: PageTransitions.fadeThrough,
+        ),
       ),
       GoRoute(
         path: RoutePaths.analyze,
         name: 'analyze',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final imageId = int.parse(state.pathParameters['imageId']!);
-          return AnalysisScreen(imageId: imageId);
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: AnalysisScreen(imageId: imageId),
+            transitionsBuilder: PageTransitions.fadeThrough,
+          );
         },
       ),
       GoRoute(
         path: RoutePaths.result,
         name: 'result',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final analysis = state.extra as AnalysisModel;
-          return ResultScreen(analysis: analysis!);
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: ResultScreen(analysis: analysis!),
+            transitionsBuilder: PageTransitions.slideFromRight,
+          );
         },
       ),
       GoRoute(
         path: RoutePaths.profile,
         name: 'profile',
-        builder: (context, state) => const ProfileScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const ProfileScreen(),
+          transitionsBuilder: PageTransitions.slideFromRight,
+        ),
       ),
       GoRoute(
         path: RoutePaths.history,
         name: 'history',
-        builder: (context, state) => const HistoryScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const HistoryScreen(),
+          transitionsBuilder: PageTransitions.slideFromRight,
+        ),
       ),
       GoRoute(
         path: RoutePaths.settings,
         name: 'settings',
-        builder: (context, state) => const SettingsScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const SettingsScreen(),
+          transitionsBuilder: PageTransitions.slideFromRight,
+        ),
       ),
       GoRoute(
         path: RoutePaths.help,
         name: 'help',
-        builder: (context, state) => const HelpScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const HelpScreen(),
+          transitionsBuilder: PageTransitions.slideFromRight,
+        ),
       ),
     ],
   );

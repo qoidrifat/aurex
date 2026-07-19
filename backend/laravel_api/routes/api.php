@@ -30,6 +30,11 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:5,1');
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
+    // ── Public Routes — Privacy Policy (GDPR) ────────
+    // Retention policy harus publik agar siapapun bisa membaca
+    // sebelum memberikan consent (GDPR Article 12).
+    Route::get('/user/retention-policy', [\App\Http\Controllers\UserDataController::class, 'getRetentionPolicy']);
+
     // ── Protected Routes (perlu autentikasi) ──────────
 
     Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
@@ -42,6 +47,17 @@ Route::prefix('v1')->group(function () {
         Route::post('/analyze', [AnalysisController::class, 'analyze']);
         Route::get('/history', [AnalysisController::class, 'history']);
         Route::get('/result/{id}', [AnalysisController::class, 'getResult']);
+
+        // ── GDPR / Data Privacy Compliance (Item #6) ────────────
+        Route::prefix('user')->group(function () {
+            Route::get('/data/export', [\App\Http\Controllers\UserDataController::class, 'exportData']);
+            Route::delete('/data/delete', [\App\Http\Controllers\UserDataController::class, 'deleteAccount']);
+
+            Route::prefix('consent')->group(function () {
+                Route::post('/', [\App\Http\Controllers\UserDataController::class, 'updateConsent']);
+                Route::get('/history', [\App\Http\Controllers\UserDataController::class, 'getConsentHistory']);
+            });
+        });
     });
 });
 

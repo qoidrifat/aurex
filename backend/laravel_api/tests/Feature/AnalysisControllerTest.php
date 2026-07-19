@@ -231,8 +231,7 @@ class AnalysisControllerTest extends TestCase
                              'image_id' => $imageId,
                          ]);
 
-        $response->assertStatus(403)
-                 ->assertJson(['message' => 'Unauthorized']);
+        $response->assertStatus(403);
     }
 
     public function test_analyze_returns_user_friendly_error_on_ai_failure()
@@ -371,8 +370,7 @@ class AnalysisControllerTest extends TestCase
         $response = $this->withHeaders($this->authHeaders())
                          ->getJson("/api/v1/result/{$analysis->id}");
 
-        $response->assertStatus(403)
-                 ->assertJson(['message' => 'Unauthorized']);
+        $response->assertStatus(403);
     }
 
     public function test_get_result_fails_with_nonexistent_analysis()
