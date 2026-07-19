@@ -13,7 +13,7 @@ import uvicorn
 
 # ==================== CONFIGURATION ====================
 
-MODEL_VERSION = "2.0.0"
+MODEL_VERSION = "2.1.0"
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png"}
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
@@ -72,12 +72,14 @@ def log_with_context(message: str, level: str = "info", **kwargs):
     extra.extra_fields = kwargs
     getattr(logger, level)(message, extra={"extra_fields": kwargs})
 
-# ==================== MEDIAPIPE INIT ====================
+# ==================== MEDIAPIPE TASKS INIT ====================
 
-mp_face_mesh = mp.solutions.face_mesh
-mp_face_detection = mp.solutions.face_detection
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 
-# Track MediaPipe & OpenCV versions untuk model versioning (#4 Prioritas Sedang)
+MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
+
+# Track MediaPipe & OpenCV versions untuk model versioning
 MEDIAPIPE_VERSION = getattr(mp, "__version__", "unknown")
 OPENCV_VERSION = cv2.__version__
 
@@ -87,16 +89,23 @@ logger.info(
     f"Service v{MODEL_VERSION}"
 )
 
-face_mesh = mp_face_mesh.FaceMesh(
-    static_image_mode=True,
-    max_num_faces=1,
-    min_detection_confidence=0.5,
-)
+# Inisialisasi FaceLandmarker (new MediaPipe Tasks API)
+# FaceLandmarker menangani deteksi wajah + landmark bersama-sama
+face_landmarker_model = os.path.join(MODEL_DIR, "face_landmarker.task")
 
-face_detection = mp_face_detection.FaceDetection(
-    model_selection=1,  # 1 = full range (best for close-ups)
-    min_detection_confidence=0.5,
+if not os.path.exists(face_landmarker_model):
+    logger.error(f"CRITICAL: Model file not found: {face_landmarker_model}")
+    logger.error("Download from: https://storage.googleapis.com/mediapipe-models/")
+    raise RuntimeError(f"Missing model file: {face_landmarker_model}")
+
+base_options = python.BaseOptions(model_asset_path=face_landmarker_model)
+landmarker_options = vision.FaceLandmarkerOptions(
+    base_options=base_options,
+    output_face_blendshapes=False,
+    num_faces=1,
+    min_face_detection_confidence=0.5,
 )
+face_landmarker = vision.FaceLandmarker.create_from_options(landmarker_options)
 
 # ==================== API KEY AUTH ====================
 
@@ -205,17 +214,21 @@ async def validate_image(file: UploadFile) -> Tuple[np.ndarray, int, int]:
 
 # ==================== FACE DETECTION & ANALYSIS ====================
 
-def detect_face(img_rgb: np.ndarray) -> Optional[Tuple]:
+def detect_face(img_rgb: np.ndarray) -> Optional[list]:
     """
-    Deteksi wajah menggunakan MediaPipe Face Mesh.
-    Returns: List of landmark objects atau None jika tidak ada wajah terdeteksi.
+    Deteksi wajah menggunakan MediaPipe Face Landmarker (Tasks API).
+    Returns: List of NormalizedLandmark objects atau None jika tidak ada wajah.
     """
-    results = face_mesh.process(img_rgb)
+    # Konversi numpy array (RGB) ke mp.Image
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
     
-    if not results.multi_face_landmarks:
+    # Deteksi
+    result = face_landmarker.detect(mp_image)
+    
+    if not result.face_landmarks or len(result.face_landmarks) == 0:
         return None
     
-    return results.multi_face_landmarks[0].landmark
+    return result.face_landmarks[0]
 
 def classify_face_shape(landmarks) -> Tuple[str, float]:
     """

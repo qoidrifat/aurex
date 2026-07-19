@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/typography.dart';
+import '../core/theme/spacing.dart';
 import '../providers/auth_provider.dart';
 import '../router.dart';
 import '../widgets/primary_button.dart';
@@ -48,9 +49,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (errorMessage != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: AurexColors.rust,
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: AppSpacing.iconMd),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: Text(errorMessage)),
+              ],
+            ),
+            backgroundColor: AurexColors.error,
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            ),
+            margin: const EdgeInsets.all(AppSpacing.md),
             action: SnackBarAction(
               label: 'OK',
               textColor: Colors.white,
@@ -69,27 +80,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: AppSpacing.paddingScreen,
           child: Form(
             key: _formKey,
             child: FocusTraversalGroup(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 60),
-                  Text(
-                    'Welcome Back',
-                    style: AurexTypography.heading1,
-                    textAlign: TextAlign.center,
+                  const SizedBox(height: AppSpacing.xxxl),
+
+                  // Header
+                  Semantics(
+                    header: true,
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AurexColors.olive.withValues(alpha: 0.1),
+                          ),
+                          child: const Icon(
+                            Icons.auto_awesome,
+                            size: 40,
+                            color: AurexColors.olive,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'Welcome Back',
+                          style: AurexTypography.heading1,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Sign in to continue your style journey',
+                          style: AurexTypography.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Sign in to continue your style journey',
-                    style: AurexTypography.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
+
+                  const SizedBox(height: AppSpacing.xxl),
+
+                  // Email field
                   TextFormField(
                     controller: _emailController,
                     focusNode: _emailFocusNode,
@@ -101,20 +137,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       filled: true,
                       fillColor: AurexColors.charcoal.withValues(alpha: 0.5),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AurexColors.grey.withValues(alpha: 0.3)),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: BorderSide(
+                          color: AurexColors.grey.withValues(alpha: 0.3),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AurexColors.olive, width: 2),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: const BorderSide(
+                          color: AurexColors.olive,
+                          width: 2,
+                        ),
                       ),
-                      prefixIcon: Semantics(
-                        label: 'Ikon email',
-                        excludeSemantics: true,
-                        child: const Icon(Icons.email_outlined, color: AurexColors.grey),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: const BorderSide(color: AurexColors.error),
+                      ),
+                      contentPadding: AppSpacing.paddingFormField,
+                      prefixIcon: const Icon(
+                        Icons.email_outlined,
+                        color: AurexColors.grey,
                       ),
                     ),
                     validator: (value) {
@@ -128,7 +173,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     },
                     onFieldSubmitted: (_) => _passwordFocusNode.requestFocus(),
                   ),
-                  const SizedBox(height: 16),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Password field
                   TextFormField(
                     controller: _passwordController,
                     focusNode: _passwordFocusNode,
@@ -141,20 +189,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       filled: true,
                       fillColor: AurexColors.charcoal.withValues(alpha: 0.5),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AurexColors.grey.withValues(alpha: 0.3)),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: BorderSide(
+                          color: AurexColors.grey.withValues(alpha: 0.3),
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AurexColors.olive, width: 2),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: const BorderSide(
+                          color: AurexColors.olive,
+                          width: 2,
+                        ),
                       ),
-                      prefixIcon: Semantics(
-                        label: 'Ikon kunci',
-                        excludeSemantics: true,
-                        child: const Icon(Icons.lock_outlined, color: AurexColors.grey),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: const BorderSide(color: AurexColors.error),
+                      ),
+                      contentPadding: AppSpacing.paddingFormField,
+                      prefixIcon: const Icon(
+                        Icons.lock_outlined,
+                        color: AurexColors.grey,
                       ),
                       suffixIcon: Semantics(
                         label: _obscurePassword ? 'Tampilkan password' : 'Sembunyikan password',
@@ -180,33 +237,62 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 8),
+
+                  const SizedBox(height: AppSpacing.sm),
+
+                  // Forgot Password
                   Align(
                     alignment: Alignment.centerRight,
-                    child: Semantics(
-                      button: true,
-                      label: 'Lupa password',
-                      hint: 'Ketuk untuk mereset password',
-                      child: TextButton(
-                        onPressed: () {
-                          context.pushNamed('forgot-password');
-                        },
-                        child: Text(
-                          'Forgot Password?',
-                          style: AurexTypography.bodyMedium.copyWith(
-                            color: AurexColors.olive,
-                          ),
+                    child: TextButton(
+                      onPressed: () => context.pushNamed('forgot-password'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.xs,
+                        ),
+                      ),
+                      child: Text(
+                        'Forgot Password?',
+                        style: AurexTypography.bodyMedium.copyWith(
+                          color: AurexColors.olive,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Login button
                   PrimaryButton(
                     text: 'Login',
                     isLoading: authState.isLoading,
                     onPressed: _handleLogin,
+                    icon: Icons.login,
                   ),
-                  const SizedBox(height: 24),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Divider
+                  Row(
+                    children: [
+                      const Expanded(child: Divider(color: AurexColors.greyLight)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                        child: Text(
+                          'or',
+                          style: AurexTypography.bodyMedium.copyWith(
+                            color: AurexColors.grey,
+                          ),
+                        ),
+                      ),
+                      const Expanded(child: Divider(color: AurexColors.greyLight)),
+                    ],
+                  ),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Register link
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -214,20 +300,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         "Don't have an account? ",
                         style: AurexTypography.bodyMedium,
                       ),
-                      Semantics(
-                        button: true,
-                        label: 'Register',
-                        hint: 'Ketuk untuk membuat akun baru',
-                        child: GestureDetector(
-                          onTap: () {
-                            context.pushNamed('register');
-                          },
-                          child: Text(
-                            'Register',
-                            style: AurexTypography.bodyLarge.copyWith(
-                              color: AurexColors.olive,
-                              fontWeight: FontWeight.w600,
-                            ),
+                      GestureDetector(
+                        onTap: () => context.pushNamed('register'),
+                        child: Text(
+                          'Register',
+                          style: AurexTypography.bodyLarge.copyWith(
+                            color: AurexColors.olive,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),

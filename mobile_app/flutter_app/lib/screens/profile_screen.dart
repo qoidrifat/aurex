@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/typography.dart';
+import '../core/theme/spacing.dart';
 import '../providers/auth_provider.dart';
 import '../router.dart';
 
@@ -26,64 +27,86 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: AppSpacing.paddingScreen,
           child: Column(
             children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: AurexColors.olive,
-                child: Text(
-                  _getInitials(user?.name ?? 'User'),
-                  style: AurexTypography.heading1.copyWith(
-                    color: AurexColors.cream,
-                    fontSize: 36,
-                  ),
+              // ── Avatar ────────────────────────────
+              Semantics(
+                header: true,
+                label: 'Profil ${user?.name ?? 'User'}',
+                child: Column(
+                  children: [
+                    CircleAvatar(
+                      radius: AppSpacing.avatarRadius,
+                      backgroundColor: AurexColors.olive,
+                      child: Text(
+                        _getInitials(user?.name ?? 'User'),
+                        style: AurexTypography.heading1.copyWith(
+                          color: AurexColors.cream,
+                          fontSize: AppSpacing.avatarTextSize,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      user?.name ?? 'User',
+                      style: AurexTypography.heading1,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.email_outlined,
+                          size: AppSpacing.iconSm,
+                          color: AurexColors.grey,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          user?.email ?? 'No email',
+                          style: AurexTypography.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              Text(
-                user?.name ?? 'User',
-                style: AurexTypography.heading1,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                user?.email ?? 'No email',
-                style: AurexTypography.bodyMedium,
-              ),
 
-              const SizedBox(height: 48),
+              const SizedBox(height: AppSpacing.xxl),
 
+              // ── Menu Items ────────────────────────
               Expanded(
                 child: Column(
                   children: [
-                    _buildMenuTile(
-                      context,
+                    _MenuTile(
                       icon: Icons.auto_awesome,
                       title: 'New Analysis',
+                      subtitle: 'Upload and analyze your style',
                       onTap: () => context.goNamed('upload'),
                     ),
-                    _buildMenuTile(
-                      context,
+                    _MenuTile(
                       icon: Icons.history,
                       title: 'Analysis History',
+                      subtitle: 'View your past analyses',
                       onTap: () => context.pushNamed('history'),
                     ),
-                    _buildMenuTile(
-                      context,
+                    _MenuTile(
                       icon: Icons.settings,
                       title: 'Settings',
+                      subtitle: 'App preferences and account',
                       onTap: () => context.pushNamed('settings'),
                     ),
-                    _buildMenuTile(
-                      context,
+                    _MenuTile(
                       icon: Icons.help_outline,
                       title: 'Help & Support',
+                      subtitle: 'FAQs and contact us',
                       onTap: () => context.pushNamed('help'),
                     ),
                   ],
                 ),
               ),
 
+              // ── Logout Button ─────────────────────
               SafeArea(
                 child: SizedBox(
                   width: double.infinity,
@@ -92,13 +115,15 @@ class ProfileScreen extends ConsumerWidget {
                     icon: const Icon(Icons.logout, color: AurexColors.rust),
                     label: Text(
                       'Logout',
-                      style: AurexTypography.buttonText.copyWith(color: AurexColors.rust),
+                      style: AurexTypography.buttonText.copyWith(
+                        color: AurexColors.rust,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AurexColors.rust),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: AppSpacing.paddingButton,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       ),
                     ),
                   ),
@@ -107,26 +132,6 @@ class ProfileScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildMenuTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return Card(
-      color: AurexColors.charcoal.withValues(alpha: 0.3),
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Icon(icon, color: AurexColors.olive),
-        title: Text(title, style: AurexTypography.bodyLarge),
-        trailing: const Icon(Icons.chevron_right, color: AurexColors.grey),
-        onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -148,13 +153,78 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-/// Dialog konfirmasi logout dengan loading state dan animasi
+/// Menu tile dengan micro-interaction untuk halaman profil.
+class _MenuTile extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _MenuTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  State<_MenuTile> createState() => _MenuTileState();
+}
+
+class _MenuTileState extends State<_MenuTile> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AurexColors.charcoal.withValues(alpha: 0.3),
+      margin: AppSpacing.marginCard,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      ),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) {
+          setState(() => _isPressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          transform: _isPressed
+              ? (Matrix4.identity()..translate(0.0, 1.0))
+              : Matrix4.identity(),
+          child: ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AurexColors.olive.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ),
+              child: Icon(widget.icon, color: AurexColors.olive, size: AppSpacing.iconMd),
+            ),
+            title: Text(widget.title, style: AurexTypography.bodyLarge),
+            subtitle: Text(widget.subtitle, style: AurexTypography.bodyMedium),
+            trailing: Icon(
+              Icons.chevron_right,
+              color: AurexColors.grey,
+              size: AppSpacing.iconMd,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Logout confirmation dialog with loading state
 class _LogoutDialog extends ConsumerStatefulWidget {
   final BuildContext parentContext;
 
-  const _LogoutDialog({
-    required this.parentContext,
-  });
+  const _LogoutDialog({required this.parentContext});
 
   @override
   ConsumerState<_LogoutDialog> createState() => _LogoutDialogState();
@@ -167,30 +237,29 @@ class _LogoutDialogState extends ConsumerState<_LogoutDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AurexColors.charcoal,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      contentPadding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xl, AppSpacing.lg, 0),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: AppSpacing.avatarRadius + 4,
+            height: AppSpacing.avatarRadius + 4,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AurexColors.rust.withValues(alpha: 0.15),
             ),
             child: const Icon(
               Icons.logout_rounded,
-              size: 32,
+              size: AppSpacing.iconLg,
               color: AurexColors.rust,
             ),
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Konfirmasi Logout',
-            style: AurexTypography.heading2,
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.lg - 4),
+          Text('Konfirmasi Logout', style: AurexTypography.heading2),
+          const SizedBox(height: AppSpacing.sm + 4),
           Text(
             'Apakah Anda yakin ingin keluar?\nAnda perlu login kembali untuk menggunakan aplikasi.',
             style: AurexTypography.bodyMedium,
@@ -198,7 +267,7 @@ class _LogoutDialogState extends ConsumerState<_LogoutDialog> {
           ),
         ],
       ),
-      actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      actionsPadding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.lg - 4),
       actions: [
         SizedBox(
           width: double.infinity,
@@ -206,8 +275,10 @@ class _LogoutDialogState extends ConsumerState<_LogoutDialog> {
             onPressed: _isLoggingOut ? null : () => Navigator.pop(context),
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: AurexColors.grey.withValues(alpha: 0.4)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: AppSpacing.paddingButton,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              ),
             ),
             child: Text(
               'Batal',
@@ -215,25 +286,30 @@ class _LogoutDialogState extends ConsumerState<_LogoutDialog> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _isLoggingOut ? null : () => _performLogout(),
             icon: _isLoggingOut
                 ? const SizedBox(
-                    width: 18, height: 18,
+                    width: AppSpacing.iconSm,
+                    height: AppSpacing.iconSm,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2, color: AurexColors.cream,
+                      strokeWidth: 2,
+                      color: AurexColors.cream,
                     ),
                   )
-                : const Icon(Icons.logout_rounded, size: 18),
+                : const Icon(Icons.logout_rounded, size: AppSpacing.iconSm),
             label: Text(_isLoggingOut ? 'Logging out...' : 'Logout'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AurexColors.rust,
               foregroundColor: AurexColors.cream,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: AppSpacing.paddingButton,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              ),
+              elevation: 0,
             ),
           ),
         ),
@@ -243,13 +319,9 @@ class _LogoutDialogState extends ConsumerState<_LogoutDialog> {
 
   Future<void> _performLogout() async {
     setState(() => _isLoggingOut = true);
-
     await ref.read(authProvider.notifier).logout();
-
     if (!mounted) return;
-
-    Navigator.pop(context); // tutup dialog
-
+    Navigator.pop(context);
     if (widget.parentContext.mounted) {
       widget.parentContext.goNamed('login');
     }
